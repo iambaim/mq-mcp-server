@@ -87,15 +87,28 @@ async def runmqsc(qmgr_name: str, mqsc_command: str) -> str:
             return "Something went wrong!"
             
 # Put the output of each MQSC command on its own line, separated by ---
-# For the moment this will not work against z/OS queue managers which use a slightly different format.
+# Deals with both z/OS and distributed queue managers
 def prettify_runmqsc(payload: str) -> str:
     jsonOutput = json.loads(payload.decode("utf-8"))
     prettifiedOutput="\n---\n"
     for x in jsonOutput['commandResponse']:
-      prettifiedOutput += x['text'][0] + "\n---\n"
+        # z/OS
+        if x['text'][0].startswith("CSQN205I"):
+            # Remove leading and trailing messages, as they aren't needed. 
+            x['text'].pop(0)            
+            x['text'].pop()
+            for y in x['text']:
+                prettifiedOutput += y[15:] + "\n---\n"            
+        # Distributed
+        else:        
+            prettifiedOutput += x['text'][0] + "\n---\n"   
     
     return prettifiedOutput    
 
 if __name__ == "__main__":
-    # Initialize and run the server on 127.0.0.1:8000
+    # Initialize and run the server on http://127.0.0.1:8000/mcp
     mcp.run(transport='streamable-http')
+    # If using IBM Bob then use one of these
+    #mcp.run(transport='stdio')
+    # URL is http://127.0.0.1:8000/sse
+    #mcp.run(transport='sse')

@@ -8,7 +8,7 @@ This repo contains a simple MCP server, written in Python, that exposes a subset
 - dsqmq: lists any queue managers that are local to the mqweb server, and whether they are running or not
 - runmqsc: runs any MQSC command against a specific queue manager. This makes use of the [plain text MQSC API](https://www.ibm.com/docs/en/ibm-mq/9.4.x?topic=adminactionqmgrqmgrnamemqsc-post-plain-text-mqsc-command) 
 
-You can use this MCP server with any LLM which has an MCP client in it to allow that LLM to interact with, and potentially configure, your queue managers. 
+You can use this MCP server with any LLM which has an MCP client in it, for example [IBM Bob](https://www.ibm.com/products/bob), to allow that LLM to interact with, and potentially configure, your queue managers. 
 
 ## Getting the MQ MCP server running
 
@@ -30,11 +30,10 @@ This example was created based on these [instructions](https://modelcontextproto
 - Start the MQ MCP server by running: **uv run mqmcpserver.py**
 
 By default the MQ MCP server will be listening on http://127.0.0.1:8000/mcp using the streamable HTTP protocol. You can adjust the host name and port number, or use a different protocol using the information provided [here](https://github.com/jlowin/fastmcp#running-your-server).
-
-https://github.com/jlowin/fastmcp#running-your-server
+Some alternatives are included, with comments, in the code.
 
 ## Connecting the MCP server to an LLM
 
-Follow the instructions provided by your LLM for connecting to your new MCP server. For example you could connect to it using [IBM Watsonx Orchestrate](https://www.ibm.com/docs/en/watsonx/watson-orchestrate/base?topic=tools-importing-from-mcp-server). 
+Follow the instructions provided by your LLM for connecting to your new MCP server. For example you could connect to it using [IBM Bob](https://www.ibm.com/products/bob) or [IBM Watsonx Orchestrate](https://www.ibm.com/docs/en/watsonx/watson-orchestrate/base?topic=servers-importing-tools-from-mcp-server). 
 Alternatively, a [wide range](https://modelcontextprotocol.io/clients) of other LLMs support MCP.
 
