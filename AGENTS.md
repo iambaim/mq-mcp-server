@@ -8,11 +8,12 @@ IBM MQ MCP server. Core logic lives in `mqmcp/server.py`. No test suite.
 - **`uv` is required** — no `requirements.txt` or `pip` workflow exists
 
 ```sh
-uv sync           # install deps and register the mqmcp executable
+uv sync --dev     # install deps including pytest
 uv run mqmcp      # run via entry point
+uv run pytest tests/ -v  # run tests
 ```
 
-No build, lint, typecheck, format, or test commands are configured. Do not attempt to run a test suite.
+No build, lint, typecheck, or format commands are configured.
 
 ## Configuration
 Defaults are defined as module-level constants in `mqmcpserver.py`:
