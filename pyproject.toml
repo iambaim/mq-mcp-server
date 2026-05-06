@@ -20,3 +20,7 @@ build-backend = "hatchling.build"
 dev = [
     "pytest>=9.0.3",
 ]
+
+[tool.pytest.ini_options]
+markers = ["integration: requires a live IBM MQ instance (deselect with '-m not integration')"]
+addopts = "-m 'not integration'"

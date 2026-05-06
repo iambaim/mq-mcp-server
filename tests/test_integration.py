@@ -24,7 +24,11 @@ Environment variables (all optional, fall back to defaults):
 import asyncio
 import os
 
+import pytest
+
 from mqmcp.server import _client_pool, dspmq, runmqsc
+
+pytestmark = pytest.mark.integration
 
 URL_BASE = os.getenv("MQ_URL_BASE", "https://localhost:9443/ibmmq/rest/v3/admin/")
 USERNAME = os.getenv("MQ_USERNAME", "admin")

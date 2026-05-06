@@ -62,4 +62,4 @@ jobs:
           MQ_USERNAME: admin
           MQ_PASSWORD: passw0rd
           MQ_QMGR_NAME: QM1
-        run: uv run pytest tests/test_integration.py -v
+        run: uv run pytest tests/test_integration.py -v -m integration
