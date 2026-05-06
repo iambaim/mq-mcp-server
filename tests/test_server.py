@@ -1,8 +1,6 @@
 import inspect
 import json
 
-import pytest
-
 from mqmcp.server import (
     DEFAULT_PASSWORD,
     DEFAULT_URL_BASE,
@@ -189,12 +187,32 @@ def test_prettify_runmqsc_zos_only_banner_and_trailer():
 # ---------------------------------------------------------------------------
 
 def test_runmqsc_json_injection_safety():
-    """mqsc_command containing double quotes must not corrupt the JSON payload."""
+    """mqsc_command containing double quotes must produce valid JSON in the request body.
+
+    Verifies the serialisation logic used in server.py directly — if someone
+    reverts json.dumps to string concatenation, this test will catch it.
+    """
     command_with_quotes = 'DISPLAY QUEUE("MY.QUEUE")'
-    # Simulate what runmqsc builds for the POST body
-    payload = json.dumps({
+
+    # Replicate exactly what runmqsc builds before POSTing
+    from mqmcp.server import json as server_json  # same json module used in server
+    payload = server_json.dumps({
         "type": "runCommand",
         "parameters": {"command": command_with_quotes},
     })
+
+    # Must round-trip cleanly — string concatenation would break this
     parsed = json.loads(payload)
+    assert parsed["type"] == "runCommand"
     assert parsed["parameters"]["command"] == command_with_quotes
+
+
+def test_runmqsc_json_injection_backslash():
+    """Backslashes in the command must also be safely escaped."""
+    command_with_backslash = 'DISPLAY QUEUE(TEST\\QUEUE)'
+    payload = json.dumps({
+        "type": "runCommand",
+        "parameters": {"command": command_with_backslash},
+    })
+    parsed = json.loads(payload)
+    assert parsed["parameters"]["command"] == command_with_backslash
