@@ -19,7 +19,7 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 # Initialize FastMCP server
-mcp = FastMCP("mqmcpserver")
+mcp = FastMCP("mqmcpserver", host="0.0.0.0", port=3000)
 
 DEFAULT_URL_BASE = "https://localhost:9443/ibmmq/rest/v3/admin/"
 DEFAULT_USER_NAME = "mqreader"
@@ -180,17 +180,7 @@ def prettify_runmqsc(data: dict) -> str:
 
 
 def main():
-    import threading
-    import uvicorn
-
-    sse_thread = threading.Thread(
-        target=uvicorn.run,
-        kwargs={"app": mcp.sse_app(), "host": "0.0.0.0", "port": 3000},
-        daemon=True,
-    )
-    sse_thread.start()
-
-    mcp.run(transport="stdio")
+    mcp.run(transport="sse")
 
 
 if __name__ == "__main__":
