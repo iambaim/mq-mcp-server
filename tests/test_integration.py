@@ -75,6 +75,19 @@ def test_dspmq_bad_credentials():
 # runmqsc
 # ---------------------------------------------------------------------------
 
+def test_runmqsc_raw_response():
+    """Dump the raw JSON response from runmqsc to diagnose parsing issues."""
+    import httpx
+    client = httpx.Client(verify=False, auth=httpx.BasicAuth(USERNAME, PASSWORD))
+    data = __import__('json').dumps({"type": "runCommand", "parameters": {"command": "DISPLAY QMGR"}})
+    url = URL_BASE.rstrip("/") + "/action/qmgr/" + QMGR + "/mqsc"
+    resp = client.post(url, content=data, headers={"Content-Type": "application/json", "ibm-mq-rest-csrf-token": "a"}, timeout=30)
+    print("\nSTATUS:", resp.status_code)
+    print("BODY:", resp.text)
+    client.close()
+    assert False, "diagnostic — see output above"
+
+
 def test_runmqsc_display_qmgr():
     result = asyncio.run(runmqsc(
         qmgr_name=QMGR,
