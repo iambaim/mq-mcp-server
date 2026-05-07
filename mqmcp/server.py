@@ -118,7 +118,7 @@ async def runmqsc(
 
     client = _get_client(url_base, username, password)
     try:
-        response = await client.post(url, data=data, headers=headers, timeout=30.0)
+        response = await client.post(url, content=data, headers=headers, timeout=30.0)
         response.raise_for_status()
         return prettify_runmqsc(response.json())
     except httpx.HTTPStatusError as err:
