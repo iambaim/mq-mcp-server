@@ -133,12 +133,23 @@ def prettify_runmqsc(data: dict) -> str:
     """Format MQSC command output, one response per line separated by ---.
     Deals with both z/OS and distributed queue managers.
     Surfaces completionCode warnings and errors alongside the output text.
+
+    The MQ REST API returns completionCode as either an integer (0=success,
+    8=warning, 16=error) or a string ("success"/"warning"/"error") depending
+    on the API version. text may be a list of strings (z/OS) or a single
+    string (distributed).
     """
     lines = ["\n---\n"]
     for entry in data["commandResponse"]:
         text = entry.get("text", [])
-        completion = entry.get("completionCode", "success").lower()
+        raw_completion = entry.get("completionCode", 0)
         reason = entry.get("reasonCode", 0)
+
+        # Normalise completionCode to a string regardless of API version
+        if isinstance(raw_completion, int):
+            completion = {0: "success", 8: "warning", 16: "error"}.get(raw_completion, "success")
+        else:
+            completion = str(raw_completion).lower()
 
         prefix = ""
         if completion == "warning":
@@ -151,14 +162,17 @@ def prettify_runmqsc(data: dict) -> str:
                 lines.append(f"{prefix}\n---\n")
             continue
 
-        # z/OS: strip leading CSQN205I banner and trailing summary line
-        if text[0].startswith("CSQN205I"):
-            inner = text[1:-1]
-            for y in inner:
-                lines.append(f"{prefix}{y[15:]}\n---\n")
-        # Distributed
+        # text may be a list of strings (z/OS) or a single string (distributed)
+        if isinstance(text, list):
+            # z/OS: strip leading CSQN205I banner and trailing summary line
+            if text and text[0].startswith("CSQN205I"):
+                for y in text[1:-1]:
+                    lines.append(f"{prefix}{y[15:]}\n---\n")
+            else:
+                for line in text:
+                    lines.append(f"{prefix}{line}\n---\n")
         else:
-            lines.append(f"{prefix}{text[0]}\n---\n")
+            lines.append(f"{prefix}{text}\n---\n")
 
     return "".join(lines)
 

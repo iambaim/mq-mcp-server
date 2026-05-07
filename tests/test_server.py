@@ -87,6 +87,7 @@ def test_prettify_dspmq_empty():
 # ---------------------------------------------------------------------------
 
 def test_prettify_runmqsc_distributed():
+    """text as list of strings, completionCode as string (legacy shape)."""
     data = {
         "commandResponse": [
             {"completionCode": "success", "reasonCode": 0, "text": ["QUEUE(MY.QUEUE) TYPE(QLOCAL)"]},
@@ -94,6 +95,18 @@ def test_prettify_runmqsc_distributed():
     }
     result = prettify_runmqsc(data)
     assert "QUEUE(MY.QUEUE) TYPE(QLOCAL)" in result
+
+
+def test_prettify_runmqsc_distributed_int_completion():
+    """text as a single string, completionCode as integer — actual MQ REST API shape."""
+    data = {
+        "commandResponse": [
+            {"completionCode": 0, "reasonCode": 0, "text": "AMQ8408I: Display Queue Manager details.   QMNAME(QM1)"},
+        ]
+    }
+    result = prettify_runmqsc(data)
+    assert "AMQ8408I" in result
+    assert "QM1" in result
 
 
 def test_prettify_runmqsc_warning():
@@ -106,10 +119,33 @@ def test_prettify_runmqsc_warning():
     assert "[WARNING reasonCode=4]" in result
 
 
+def test_prettify_runmqsc_warning_int():
+    """completionCode=8 maps to warning."""
+    data = {
+        "commandResponse": [
+            {"completionCode": 8, "reasonCode": 4, "text": "AMQ8405I: MQSC command completed."},
+        ]
+    }
+    result = prettify_runmqsc(data)
+    assert "[WARNING reasonCode=4]" in result
+
+
 def test_prettify_runmqsc_error():
     data = {
         "commandResponse": [
             {"completionCode": "error", "reasonCode": 2085, "text": ["AMQ8147E: Unknown object name."]},
+        ]
+    }
+    result = prettify_runmqsc(data)
+    assert "[ERROR reasonCode=2085]" in result
+    assert "AMQ8147E" in result
+
+
+def test_prettify_runmqsc_error_int():
+    """completionCode=16 maps to error."""
+    data = {
+        "commandResponse": [
+            {"completionCode": 16, "reasonCode": 2085, "text": "AMQ8147E: Unknown object name."},
         ]
     }
     result = prettify_runmqsc(data)
