@@ -1,22 +1,23 @@
 # AGENTS.md
 
 ## Overview
-IBM MQ MCP server. Core logic lives in `mqmcp/server.py`. No test suite.
+IBM MQ MCP server. Core logic lives in `mqmcp/server.py`.
 
 ## Toolchain
 - **Python 3.13** (pinned via `.python-version`; ignore README's claim of "3.10+")
 - **`uv` is required** — no `requirements.txt` or `pip` workflow exists
 
 ```sh
-uv sync --dev     # install deps including pytest
-uv run mqmcp      # run via entry point
-uv run pytest tests/ -v  # run tests
+uv sync --dev                              # install deps including pytest
+uv run mqmcp                               # run via entry point
+uv run pytest tests/ -v                    # unit tests only (default)
+uv run pytest tests/test_integration.py -v -m integration  # integration tests (require live MQ)
 ```
 
 No build, lint, typecheck, or format commands are configured.
 
 ## Configuration
-Defaults are defined as module-level constants in `mqmcpserver.py`:
+Defaults are defined as module-level constants in `mqmcp/server.py`:
 
 ```python
 DEFAULT_URL_BASE = "https://localhost:9443/ibmmq/rest/v3/admin/"
@@ -38,8 +39,16 @@ Requires a live IBM MQ instance with `mqweb` accessible at the target URL.
 ## Quirks
 - **TLS verification is disabled** (`verify=False`) — intentional for self-signed MQ certs. Do not "fix" it.
 - **`runmqsc` uses `json.dumps`** to serialize the MQSC command safely. Do not revert to string concatenation.
-- **`prettify_runmqsc`** branches on z/OS vs distributed by checking if the first `text` element starts with `"CSQN205I"`. Both branches must stay intact.
-- **`completionCode`** (`"success"` / `"warning"` / `"error"`) and `reasonCode` are surfaced in `runmqsc` output — the MQ REST API returns these on partial failures that do not produce an HTTP error status.
-- The `ibm-mq-rest-csrf-token` header is hardcoded to `"token"` (dspmq) / `"a"` (runmqsc) — required by the MQ REST API.
+- **`prettify_runmqsc`** handles both z/OS and distributed response shapes:
+  - `text` may be a **single string** (distributed) or a **list of strings** (z/OS). Both are handled.
+  - z/OS responses are detected by `text[0].startswith("CSQN205I")`; the banner and trailing summary line are stripped.
+  - Both branches must stay intact.
+- **`completionCode`** may be an **integer** (`0`=success, `8`=warning, `16`=error) or a **string** (`"success"`/`"warning"`/`"error"`) depending on MQ REST API version. Both are normalised internally. Unknown integer codes default to `"error"`.
+- **`reasonCode`** is surfaced in `runmqsc` output alongside `completionCode` on partial failures that do not produce an HTTP error status.
+- The `ibm-mq-rest-csrf-token` header is set to the module-level constant `_CSRF_TOKEN = "token"` on all requests — required by the MQ REST API; the value is arbitrary.
 - **Client pool does not detect password changes** for the same `(url_base, username)` key. If credentials change, use a different username or restart the server.
 - The `pyproject.toml` registers `mqmcp = "mqmcpserver:main"` as a script entry point. `uv sync` must be run (or `tool.uv.package = true` / a build-system must be present) for the entry point to be installed — both are already configured via `hatchling`.
+
+## Tests
+- `tests/test_server.py` — unit tests for pure functions (`prettify_dspmq`, `prettify_runmqsc`, signatures). Run by default with `pytest tests/`.
+- `tests/test_integration.py` — integration tests requiring a live MQ container. Marked with `pytest.mark.integration` and excluded from the default run. The `clear_client_pool` autouse fixture clears `_client_pool` between tests to avoid event-loop binding issues with `asyncio.run()`.
