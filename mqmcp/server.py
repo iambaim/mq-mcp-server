@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from typing import Tuple
 
 import httpx
 
@@ -26,8 +25,11 @@ DEFAULT_URL_BASE = "https://localhost:9443/ibmmq/rest/v3/admin/"
 DEFAULT_USER_NAME = "mqreader"
 DEFAULT_PASSWORD = "mqreader"
 
+# Required by the MQ REST API — value is arbitrary, presence is mandatory.
+_CSRF_TOKEN = "token"
+
 # Client pool keyed by (url_base, username). One persistent client per host/user pair.
-_client_pool: dict[Tuple[str, str], httpx.AsyncClient] = {}
+_client_pool: dict[tuple[str, str], httpx.AsyncClient] = {}
 
 
 def _get_client(url_base: str, username: str, password: str) -> httpx.AsyncClient:
@@ -60,7 +62,7 @@ async def dspmq(
     """
     headers = {
         "Content-Type": "application/json",
-        "ibm-mq-rest-csrf-token": "token",
+        "ibm-mq-rest-csrf-token": _CSRF_TOKEN,
     }
 
     url = url_base.rstrip("/") + "/qmgr/"
@@ -81,7 +83,7 @@ async def dspmq(
 def prettify_dspmq(data: dict) -> str:
     """Format queue manager list, one entry per line separated by ---"""
     lines = ["\n---\n"]
-    for qmgr in data["qmgr"]:
+    for qmgr in data.get("qmgr", []):
         lines.append(f"name = {qmgr['name']}, running = {qmgr['state']}\n---\n")
     return "".join(lines)
 
@@ -105,7 +107,7 @@ async def runmqsc(
     """
     headers = {
         "Content-Type": "application/json",
-        "ibm-mq-rest-csrf-token": "a",
+        "ibm-mq-rest-csrf-token": _CSRF_TOKEN,
     }
 
     # Use json.dumps to safely serialize the command and avoid JSON injection
@@ -133,12 +135,23 @@ def prettify_runmqsc(data: dict) -> str:
     """Format MQSC command output, one response per line separated by ---.
     Deals with both z/OS and distributed queue managers.
     Surfaces completionCode warnings and errors alongside the output text.
+
+    The MQ REST API returns completionCode as either an integer (0=success,
+    8=warning, 16=error) or a string ("success"/"warning"/"error") depending
+    on the API version. text may be a list of strings (z/OS) or a single
+    string (distributed).
     """
     lines = ["\n---\n"]
     for entry in data["commandResponse"]:
         text = entry.get("text", [])
-        completion = entry.get("completionCode", "success").lower()
+        raw_completion = entry.get("completionCode", 0)
         reason = entry.get("reasonCode", 0)
+
+        # Normalise completionCode to a string regardless of API version
+        if isinstance(raw_completion, int):
+            completion = {0: "success", 8: "warning", 16: "error"}.get(raw_completion, "error")
+        else:
+            completion = str(raw_completion).lower()
 
         prefix = ""
         if completion == "warning":
@@ -151,14 +164,17 @@ def prettify_runmqsc(data: dict) -> str:
                 lines.append(f"{prefix}\n---\n")
             continue
 
-        # z/OS: strip leading CSQN205I banner and trailing summary line
-        if text[0].startswith("CSQN205I"):
-            inner = text[1:-1]
-            for y in inner:
-                lines.append(f"{prefix}{y[15:]}\n---\n")
-        # Distributed
+        # text may be a list of strings (z/OS) or a single string (distributed)
+        if isinstance(text, list):
+            # z/OS: strip leading CSQN205I banner and trailing summary line
+            if text and text[0].startswith("CSQN205I"):
+                for y in text[1:-1]:
+                    lines.append(f"{prefix}{y[15:]}\n---\n")
+            else:
+                for line in text:
+                    lines.append(f"{prefix}{line}\n---\n")
         else:
-            lines.append(f"{prefix}{text[0]}\n---\n")
+            lines.append(f"{prefix}{text}\n---\n")
 
     return "".join(lines)
 
