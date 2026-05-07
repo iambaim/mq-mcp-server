@@ -147,7 +147,7 @@ def prettify_runmqsc(data: dict) -> str:
 
         # Normalise completionCode to a string regardless of API version
         if isinstance(raw_completion, int):
-            completion = {0: "success", 8: "warning", 16: "error"}.get(raw_completion, "success")
+            completion = {0: "success", 8: "warning", 16: "error"}.get(raw_completion, "error")
         else:
             completion = str(raw_completion).lower()
 
