@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from typing import Tuple
 
 import httpx
 
@@ -26,8 +25,11 @@ DEFAULT_URL_BASE = "https://localhost:9443/ibmmq/rest/v3/admin/"
 DEFAULT_USER_NAME = "mqreader"
 DEFAULT_PASSWORD = "mqreader"
 
+# Required by the MQ REST API — value is arbitrary, presence is mandatory.
+_CSRF_TOKEN = "token"
+
 # Client pool keyed by (url_base, username). One persistent client per host/user pair.
-_client_pool: dict[Tuple[str, str], httpx.AsyncClient] = {}
+_client_pool: dict[tuple[str, str], httpx.AsyncClient] = {}
 
 
 def _get_client(url_base: str, username: str, password: str) -> httpx.AsyncClient:
@@ -60,7 +62,7 @@ async def dspmq(
     """
     headers = {
         "Content-Type": "application/json",
-        "ibm-mq-rest-csrf-token": "token",
+        "ibm-mq-rest-csrf-token": _CSRF_TOKEN,
     }
 
     url = url_base.rstrip("/") + "/qmgr/"
@@ -81,7 +83,7 @@ async def dspmq(
 def prettify_dspmq(data: dict) -> str:
     """Format queue manager list, one entry per line separated by ---"""
     lines = ["\n---\n"]
-    for qmgr in data["qmgr"]:
+    for qmgr in data.get("qmgr", []):
         lines.append(f"name = {qmgr['name']}, running = {qmgr['state']}\n---\n")
     return "".join(lines)
 
@@ -105,7 +107,7 @@ async def runmqsc(
     """
     headers = {
         "Content-Type": "application/json",
-        "ibm-mq-rest-csrf-token": "a",
+        "ibm-mq-rest-csrf-token": _CSRF_TOKEN,
     }
 
     # Use json.dumps to safely serialize the command and avoid JSON injection
