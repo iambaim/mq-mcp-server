@@ -30,6 +30,20 @@ from mqmcp.server import _client_pool, dspmq, runmqsc
 
 pytestmark = pytest.mark.integration
 
+
+@pytest.fixture(autouse=True)
+def clear_client_pool():
+    """Clear the httpx client pool before each test.
+
+    asyncio.run() creates a new event loop per call. httpx AsyncClient instances
+    are bound to the event loop they were created in, so reusing a pooled client
+    across asyncio.run() calls raises RuntimeError. Clearing the pool forces a
+    fresh client (and a fresh event loop binding) for each test.
+    """
+    _client_pool.clear()
+    yield
+    _client_pool.clear()
+
 URL_BASE = os.getenv("MQ_URL_BASE", "https://localhost:9443/ibmmq/rest/v3/admin/")
 USERNAME = os.getenv("MQ_USERNAME", "admin")
 PASSWORD = os.getenv("MQ_PASSWORD", "passw0rd")
