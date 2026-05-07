@@ -180,6 +180,16 @@ def prettify_runmqsc(data: dict) -> str:
 
 
 def main():
+    import threading
+    import uvicorn
+
+    sse_thread = threading.Thread(
+        target=uvicorn.run,
+        kwargs={"app": mcp.sse_app(), "host": "0.0.0.0", "port": 3000},
+        daemon=True,
+    )
+    sse_thread.start()
+
     mcp.run(transport="stdio")
 
 

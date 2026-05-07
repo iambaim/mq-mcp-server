@@ -319,6 +319,7 @@ source = { editable = "." }
 dependencies = [
     { name = "httpx" },
     { name = "mcp", extra = ["cli"] },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -330,6 +331,7 @@ dev = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.11.0" },
+    { name = "uvicorn", specifier = ">=0.46.0" },
 ]
 
 [package.metadata.requires-dev]
