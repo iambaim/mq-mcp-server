@@ -16,10 +16,10 @@ import json
 
 import httpx
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
-# Initialize FastMCP server
-mcp = FastMCP("mqmcpserver")
+# Initialize MCPServer
+mcp = MCPServer("mqmcpserver")
 
 DEFAULT_URL_BASE = "https://localhost:9443/ibmmq/rest/v3/admin/"
 DEFAULT_USER_NAME = "mqreader"
