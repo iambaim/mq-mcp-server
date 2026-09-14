@@ -30,11 +30,11 @@ There is no `.env` file or environment variable support. These are **fallback de
 Requires a live IBM MQ instance with `mqweb` accessible at the target URL.
 
 ## Architecture
-- Uses `FastMCP` from `mcp.server.fastmcp` with two `@mcp.tool()` async functions:
+- Uses `MCPServer` from `mcp.server` with two `@mcp.tool()` async functions:
   - `dspmq(url_base, username, password)` — GETs `<url_base>/qmgr/` to list queue managers and their states
   - `runmqsc(qmgr_name, mqsc_command, url_base, username, password)` — POSTs MQSC to `<url_base>/action/qmgr/<name>/mqsc`
 - Transport: `stdio` only
-- **Shared client pool** (`_client_pool`) — one persistent `httpx.AsyncClient` per `(url_base, username)` pair; supports multiple hosts in the same session without reconnecting
+- **Shared client pool** (`_client_pool`) — one persistent `httpx2.AsyncClient` per `(url_base, username)` pair; supports multiple hosts in the same session without reconnecting
 
 ## Quirks
 - **TLS verification is disabled** (`verify=False`) — intentional for self-signed MQ certs. Do not "fix" it.

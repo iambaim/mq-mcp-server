@@ -14,9 +14,9 @@
 # limitations under the License.
 import json
 
-import httpx
+import httpx2
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server import MCPServer
 
 # Initialize MCPServer
 mcp = MCPServer("mqmcpserver")
@@ -29,10 +29,10 @@ DEFAULT_PASSWORD = "mqreader"
 _CSRF_TOKEN = "token"
 
 # Client pool keyed by (url_base, username). One persistent client per host/user pair.
-_client_pool: dict[tuple[str, str], httpx.AsyncClient] = {}
+_client_pool: dict[tuple[str, str], httpx2.AsyncClient] = {}
 
 
-def _get_client(url_base: str, username: str, password: str) -> httpx.AsyncClient:
+def _get_client(url_base: str, username: str, password: str) -> httpx2.AsyncClient:
     """Return a cached AsyncClient for the given host and credentials.
     A new client is created if the key is seen for the first time.
     Note: password changes for the same (url_base, username) are not detected;
@@ -40,9 +40,9 @@ def _get_client(url_base: str, username: str, password: str) -> httpx.AsyncClien
     """
     key = (url_base.rstrip("/"), username)
     if key not in _client_pool:
-        _client_pool[key] = httpx.AsyncClient(
+        _client_pool[key] = httpx2.AsyncClient(
             verify=False,
-            auth=httpx.BasicAuth(username=username, password=password),
+            auth=httpx2.BasicAuth(username=username, password=password),
         )
     return _client_pool[key]
 
@@ -72,9 +72,9 @@ async def dspmq(
         response = await client.get(url, headers=headers, timeout=30.0)
         response.raise_for_status()
         return prettify_dspmq(response.json())
-    except httpx.HTTPStatusError as err:
+    except httpx2.HTTPStatusError as err:
         return f"HTTP error {err.response.status_code} from mqweb"
-    except httpx.RequestError:
+    except httpx2.RequestError:
         return "Network error: could not reach mqweb"
     except Exception as err:
         return f"Unexpected error: {type(err).__name__}"
@@ -123,9 +123,9 @@ async def runmqsc(
         response = await client.post(url, content=data, headers=headers, timeout=30.0)
         response.raise_for_status()
         return prettify_runmqsc(response.json())
-    except httpx.HTTPStatusError as err:
+    except httpx2.HTTPStatusError as err:
         return f"HTTP error {err.response.status_code} from mqweb"
-    except httpx.RequestError:
+    except httpx2.RequestError:
         return "Network error: could not reach mqweb"
     except Exception as err:
         return f"Unexpected error: {type(err).__name__}"
