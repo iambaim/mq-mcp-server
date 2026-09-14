@@ -16,7 +16,7 @@ import json
 
 import httpx
 
-from mcp.server import MCPServer
+from mcp.server.mcpserver import MCPServer
 
 # Initialize MCPServer
 mcp = MCPServer("mqmcpserver")
