@@ -13,6 +13,15 @@ This repo contains a simple MCP server, written in Python, that exposes a subset
 
 Both tools accept `url_base`, `username`, and `password` as call-time parameters, so a single server instance can target multiple MQ hosts within the same session.
 
+For FTM tenants, `ftm_dspmq` and `ftm_runmqsc` accept a Kubernetes namespace
+instead. The server resolves the QueueManager, its admitted mqweb Route and
+the referenced `MQ_APP_PASSWORD` Secret without returning the password to the
+MCP client. The namespace must contain exactly one QueueManager and one
+matching web Route. Tenant-mode calls reject endpoint and credential overrides.
+
+Tenant MQSC is limited to single-line `DISPLAY` commands. The standalone
+`runmqsc` tool retains its existing command behavior.
+
 You can use this MCP server with any LLM that has an MCP client, for example [IBM Bob](https://www.ibm.com/products/bob) or [IBM Watsonx Orchestrate](https://www.ibm.com/docs/en/watsonx/watson-orchestrate/base?topic=servers-importing-tools-from-mcp-server).
 
 ## Prerequisites
@@ -53,6 +62,19 @@ DEFAULT_PASSWORD  = "mqreader"
 You do not need to edit source to change these. Pass `url_base`, `username`, and `password` directly in each tool call, and the LLM will forward them to the correct MQ host.
 
 > **Note on permissions:** if the mqweb user is a member of the `MQWebAdmin` or `MQWebUser` roles, `runmqsc` can modify your MQ configuration. Use a read-only user in production environments.
+
+## FTM tenant access
+
+Run the server in a Kubernetes pod with a dedicated service account. In each
+permitted tenant namespace it needs `get`/`list` on `queuemanagers.mq.ibm.com`
+and `routes.route.openshift.io`, and `get` on Secrets. It does not list Secrets.
+The QueueManager's `MQ_APP_PASSWORD` environment entry must reference a Secret
+key. The server reads it on each call, so password rotations take effect without
+a restart.
+
+Tenant-mode mqweb connections verify TLS. The CA bundle defaults to
+`/etc/kagent-ca/ca-bundle.crt`; set `MQMCP_CA_BUNDLE` to use another file. The
+standalone tools retain their existing TLS behavior.
 
 ## Connecting to an LLM
 

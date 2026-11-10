@@ -37,7 +37,7 @@ Requires a live IBM MQ instance with `mqweb` accessible at the target URL.
 - **Shared client pool** (`_client_pool`) — one persistent `httpx2.AsyncClient` per `(url_base, username)` pair; supports multiple hosts in the same session without reconnecting
 
 ## Quirks
-- **TLS verification is disabled** (`verify=False`) — intentional for self-signed MQ certs. Do not "fix" it.
+- **Standalone TLS verification is disabled** (`verify=False`) for compatibility with existing self-signed MQ deployments. Tenant-mode tools use a verified CA bundle and must not inherit that setting.
 - **`runmqsc` uses `json.dumps`** to serialize the MQSC command safely. Do not revert to string concatenation.
 - **`prettify_runmqsc`** handles both z/OS and distributed response shapes:
   - `text` may be a **single string** (distributed) or a **list of strings** (z/OS). Both are handled.
@@ -46,9 +46,10 @@ Requires a live IBM MQ instance with `mqweb` accessible at the target URL.
 - **`completionCode`** may be an **integer** (`0`=success, `8`=warning, `16`=error) or a **string** (`"success"`/`"warning"`/`"error"`) depending on MQ REST API version. Both are normalised internally. Unknown integer codes default to `"error"`.
 - **`reasonCode`** is surfaced in `runmqsc` output alongside `completionCode` on partial failures that do not produce an HTTP error status.
 - The `ibm-mq-rest-csrf-token` header is set to the module-level constant `_CSRF_TOKEN = "token"` on all requests — required by the MQ REST API; the value is arbitrary.
-- **Client pool does not detect password changes** for the same `(url_base, username)` key. If credentials change, use a different username or restart the server.
+- **Standalone client pool does not detect password changes** for the same `(url_base, username)` key. Tenant tools use a fresh client per call so they pick up Secret rotation.
 - The `pyproject.toml` registers `mqmcp = "mqmcpserver:main"` as a script entry point. `uv sync` must be run (or `tool.uv.package = true` / a build-system must be present) for the entry point to be installed — both are already configured via `hatchling`.
 
 ## Tests
 - `tests/test_server.py` — unit tests for pure functions (`prettify_dspmq`, `prettify_runmqsc`, signatures). Run by default with `pytest tests/`.
 - `tests/test_integration.py` — integration tests requiring a live MQ container. Marked with `pytest.mark.integration` and excluded from the default run. The `clear_client_pool` autouse fixture clears `_client_pool` between tests to avoid event-loop binding issues with `asyncio.run()`.
+- `tests/test_ftm.py` — hermetic FTM discovery, tenant tool validation, TLS and credential-rotation tests.

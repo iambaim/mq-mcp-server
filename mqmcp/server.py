@@ -13,13 +13,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
+import re
+import ssl
+from urllib.parse import quote
 
 import httpx2
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mqmcp.ftm import DiscoveryError, MQ_CA_BUNDLE, resolve_ftm
 
-# Initialize MCPServer
-mcp = MCPServer("mqmcpserver")
+_FTM_ARGUMENTS = {
+    "ftm_dspmq": {"namespace"},
+    "ftm_runmqsc": {"namespace", "mqsc_command"},
+}
+
+
+class MQMCPServer(MCPServer):
+    async def list_tools(self):
+        tools = await super().list_tools()
+        for tool in tools:
+            if tool.name in _FTM_ARGUMENTS:
+                tool.input_schema = {**tool.input_schema, "additionalProperties": False}
+        return tools
+
+    async def call_tool(self, name, arguments, context=None):
+        if name in _FTM_ARGUMENTS and set(arguments) - _FTM_ARGUMENTS[name]:
+            raise ToolError("Unsupported FTM tenant tool arguments")
+        return await super().call_tool(name, arguments, context)
+
+
+mcp = MQMCPServer("mqmcpserver")
 
 DEFAULT_URL_BASE = "https://localhost:9443/ibmmq/rest/v3/admin/"
 DEFAULT_USER_NAME = "mqreader"
@@ -177,6 +202,69 @@ def prettify_runmqsc(data: dict) -> str:
             lines.append(f"{prefix}{text}\n---\n")
 
     return "".join(lines)
+
+
+async def _ftm_request(namespace: str, mqsc_command: str | None = None) -> str:
+    """Use a fresh verified client so Secret rotation takes effect on every call."""
+    try:
+        ca_path = os.environ.get("MQMCP_CA_BUNDLE") or MQ_CA_BUNDLE
+        tls = ssl.create_default_context(cafile=ca_path)
+    except (OSError, ssl.SSLError):
+        return "MQ trust bundle is unavailable or invalid"
+
+    try:
+        connection = await resolve_ftm(namespace)
+    except DiscoveryError as err:
+        return f"FTM MQ discovery failed: {err}"
+
+    headers = {"Content-Type": "application/json", "ibm-mq-rest-csrf-token": _CSRF_TOKEN}
+    try:
+        async with httpx2.AsyncClient(
+            verify=tls,
+            auth=httpx2.BasicAuth(username="app", password=connection.password),
+            trust_env=False,
+            follow_redirects=False,
+            timeout=30.0,
+        ) as client:
+            if mqsc_command is None:
+                response = await client.get(connection.url_base.rstrip("/") + "/qmgr/", headers=headers)
+            else:
+                url = connection.url_base.rstrip("/") + "/action/qmgr/" + quote(connection.qmgr_name, safe="") + "/mqsc"
+                data = json.dumps({"type": "runCommand", "parameters": {"command": mqsc_command}})
+                response = await client.post(url, content=data, headers=headers)
+            response.raise_for_status()
+            return prettify_dspmq(response.json()) if mqsc_command is None else prettify_runmqsc(response.json())
+    except httpx2.HTTPStatusError as err:
+        return f"HTTP error {err.response.status_code} from mqweb"
+    except httpx2.RequestError:
+        return "Network or TLS error: could not reach mqweb"
+    except Exception:
+        return "Unexpected error processing the MQ response"
+
+
+@mcp.tool()
+async def ftm_dspmq(namespace: str) -> str:
+    """List queue managers for an FTM tenant namespace.
+
+    The server resolves the mqweb endpoint and credentials from the namespace.
+    """
+    return await _ftm_request(namespace)
+
+
+@mcp.tool()
+async def ftm_runmqsc(namespace: str, mqsc_command: str) -> str:
+    """Run a read-only DISPLAY MQSC command for an FTM tenant namespace.
+
+    The server resolves the queue manager, mqweb endpoint and credentials.
+    The tenant tool rejects mutating and multi-line commands.
+    """
+    command = mqsc_command.strip()
+    if (
+        not re.fullmatch(r"DISPLAY +[^;]+", command, re.IGNORECASE | re.ASCII)
+        or any(ord(char) < 32 or ord(char) > 126 for char in command)
+    ):
+        return "Only single-line DISPLAY MQSC commands are allowed in tenant mode"
+    return await _ftm_request(namespace, command)
 
 
 def main():
